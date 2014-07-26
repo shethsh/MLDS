@@ -1,0 +1,95 @@
+Prediction of excercise activity manner :
+========================================================
+```{r setup, include=FALSE}
+opts_chunk$set(dev = 'pdf',cache=TRUE,eval=TRUE)
+```
+
+## Executive Summary
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. The goal is to predict the manner in which they did the exercise. We tried out several Machine Learning algorithms and finally settled down with Random Forest which is an ensemble of Decision Trees for predicting the manner in which the participants did the exercise.The results seem very encouraging and we can use this model to predict future test records.
+
+## Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+## Data download, Preprocessing, splitting and Feature Blocking
+
+We download the datasets if they are not already downloaded
+```{r}
+
+require(downloader)
+# Download training data
+if (!file.exists("trainData.csv")){
+   trainUrl<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+   download(trainUrl,destfile="trainData.csv", mode = "wb")
+}
+
+# Download testing data
+if (!file.exists("testing.csv")){
+   testUrl<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+   download(testUrl,destfile="testData.csv", mode = "wb")
+}
+```
+
+We read the downloaded datasets
+```{r}
+trainDataInit <- read.csv("trainData.csv", header = T, na.strings = c("NA", ""))
+testDataInit <- read.csv("testData.csv", header = T, na.strings = c("NA", ""))
+removeIndex <- 1:6
+trainDataInit <- trainDataInit[,-removeIndex]
+testDataInit <- testDataInit[,-removeIndex]
+```
+
+We remove all the columns(Feature Blocking) which have more than 30% NAs 
+The info from train set is used for test set to avoid using info from test set itself
+```{r}
+trainDataFinal <- trainDataInit[, colSums(!is.na(trainDataInit)) > 0.7 * nrow(trainDataInit)]
+testDataFinal <- testDataInit[, colSums(!is.na(trainDataInit)) > 0.7 * nrow(trainDataInit)]
+```
+
+## Machine Learnt Modelling
+We demonstrate the process of building Random Forest to our dataset
+
+### Random Forest
+
+#### Cross-validation :
+```{r}
+library(randomForest)
+library(ipred)
+library(caret)
+err <- errorest(classe ~ ., data = trainDataFinal,estimator =
+"cv", est.para=control.errorest(k=3), model=randomForest, mtry = 2)$error
+```
+
+#### Estimation of prediction error :
+```{r}
+err
+```
+
+### Model Building :
+```{r}
+trainIndex <- createDataPartition(y = trainDataFinal$classe, p = 0.8, list = FALSE)
+trainingPart <- trainDataFinal[trainIndex, ]
+validatingPart <- trainDataFinal[-trainIndex, ]  
+
+rfModel <- randomForest(classe ~ ., data = trainingPart)
+
+
+
+testDataFinal <- testDataFinal[,1:length(names(testDataFinal))-1]
+
+```
+
+#### Error on Validation dataset is :
+
+```{r}
+err
+```
+
+#### Predictions for test dataset :
+
+```{r}
+ress <- predict(object=rfModel, newdata=testDataFinal,type="response")
+ress
+```
+
+The predictions for the test dataset have been found to be 100% correct for the Course project : Submission. This can also be predicted by the error on validation dataset and error obtained using cross-validation. 
+Hence, we are able to successfully model the maneer in which the exercises were done.
